@@ -3,7 +3,9 @@ package imageoptimizer
 import (
 	"fmt"
 	"math"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
@@ -11,6 +13,11 @@ import (
 type dimension struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
+}
+
+func returnError(err error) error {
+	fmt.Println("error: ", err)
+	return fmt.Errorf("error:  %v", err)
 }
 
 func setDimension(width *int, height *int, aspectRatio float64) (*dimension, error) {
@@ -43,7 +50,7 @@ func exportAs(fileType string, image *vips.ImageRef) ([]byte, error) {
 		newImage, _, err = image.ExportPng(vips.NewPngExportParams())
 	case "jpeg":
 		newImage, _, err = image.ExportJpeg(vips.NewJpegExportParams())
-	case "jp2k":
+	case "jp2":
 		newImage, _, err = image.ExportJp2k(vips.NewJp2kExportParams())
 	case "gif":
 		newImage, _, err = image.ExportGIF(vips.NewGifExportParams())
@@ -54,13 +61,36 @@ func exportAs(fileType string, image *vips.ImageRef) ([]byte, error) {
 
 }
 
-func returnError(err error) error {
-	fmt.Println("error: ", err)
-	return fmt.Errorf("error:  %v", err)
+func getImage(inputFile string) (*vips.ImageRef, error) {
+	var image *vips.ImageRef
+	var err error
+
+	if strings.HasPrefix(inputFile, "http") {
+		resp, _ := http.Get(inputFile)
+
+		if err != nil {
+			return nil, err
+		}
+
+		defer resp.Body.Close()
+
+		image, err = vips.NewImageFromReader(resp.Body)
+
+	} else {
+		image, err = vips.NewImageFromFile(inputFile)
+
+	}
+
+	return image, err
 }
 
+// Inputfile can be file path or url
+// Outputfile should be like /path/filename without the extension name
+// Scale: 0.5 for 50%
+// filetype can be web, jpeg, png, jp2
 func ResizeImage(inputFile string, outputFile string, scale float64, fileType string) error {
-	image, err := vips.NewImageFromFile(inputFile)
+
+	image, err := getImage(inputFile)
 
 	if err != nil {
 		return returnError(err)
@@ -78,6 +108,10 @@ func ResizeImage(inputFile string, outputFile string, scale float64, fileType st
 
 	if err != nil {
 		return returnError(err)
+	}
+
+	if fileType == "jpeg" {
+		fileType = "jpg"
 	}
 
 	file, err := os.Create(outputFile + "." + fileType)
@@ -104,8 +138,13 @@ func ResizeImage(inputFile string, outputFile string, scale float64, fileType st
 
 }
 
+// Inputfile can be file path or url
+// Outputfile should be like /path/filename without the extension name
+// aspectRatio is the proportional relationship between width and height and must be in float. For square aspect ratio can be write 1 or 1.0
+// targetHeight will be ignore if targetWidth not equal to zero 0
+// filetype can be web, jpeg, png, jp2
 func ImageCrop(inputFile string, outputFile string, aspectRatio float64, targetWidth int, targetHeight int, fileType string) error {
-	image, err := vips.NewImageFromFile(inputFile)
+	image, err := getImage(inputFile)
 
 	if err != nil {
 		return returnError(err)
@@ -159,6 +198,10 @@ func ImageCrop(inputFile string, outputFile string, aspectRatio float64, targetW
 		return returnError(err)
 	}
 
+	if fileType == "jpeg" {
+		fileType = "jpg"
+	}
+
 	file, err := os.Create(outputFile + "." + fileType)
 
 	if err != nil {
@@ -182,8 +225,11 @@ func ImageCrop(inputFile string, outputFile string, aspectRatio float64, targetW
 	return nil
 }
 
+// Inputfile can be file path or url
+// Outputfile should be like /path/filename without the extension name
+// filetype can be web, jpeg, png, jp2
 func CreateThumbnail(inputFile string, outputFile string, width, height int, fileType string) error {
-	image, err := vips.NewImageFromFile(inputFile)
+	image, err := getImage(inputFile)
 
 	if err != nil {
 		return returnError(err)
@@ -203,6 +249,10 @@ func CreateThumbnail(inputFile string, outputFile string, width, height int, fil
 		return returnError(err)
 	}
 
+	if fileType == "jpeg" {
+		fileType = "jpg"
+	}
+
 	file, err := os.Create(outputFile + "." + fileType)
 
 	if err != nil {
@@ -227,8 +277,11 @@ func CreateThumbnail(inputFile string, outputFile string, width, height int, fil
 
 }
 
+// Inputfile can be file path or url
+// Outputfile should be like /path/filename without the extension name
+// filetype can be web, jpeg, png, jp2
 func CreateThumbnailWithSize(inputFile string, outputFile string, width, height int, fileType string) error {
-	image, err := vips.NewImageFromFile(inputFile)
+	image, err := getImage(inputFile)
 
 	if err != nil {
 		return returnError(err)
@@ -246,6 +299,10 @@ func CreateThumbnailWithSize(inputFile string, outputFile string, width, height 
 
 	if err != nil {
 		return returnError(err)
+	}
+
+	if fileType == "jpeg" {
+		fileType = "jpg"
 	}
 
 	file, err := os.Create(outputFile + "." + fileType)
@@ -273,7 +330,7 @@ func CreateThumbnailWithSize(inputFile string, outputFile string, width, height 
 }
 
 func AddWaterMark(inputFile string, watermarkFile string, outputFile string, fileType string) error {
-	image, err := vips.NewImageFromFile(inputFile)
+	image, err := getImage(inputFile)
 
 	if err != nil {
 		return returnError(err)
@@ -297,6 +354,10 @@ func AddWaterMark(inputFile string, watermarkFile string, outputFile string, fil
 
 	if err != nil {
 		return returnError(err)
+	}
+
+	if fileType == "jpeg" {
+		fileType = "jpg"
 	}
 
 	file, err := os.Create(outputFile + "." + fileType)
