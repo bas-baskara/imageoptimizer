@@ -382,3 +382,39 @@ func AddWaterMark(inputFile string, watermarkFile string, outputFile string, fil
 
 	return nil
 }
+
+// Inputfile can be file path or url
+// Outputfile should be like /path/filename without the extension name
+// filetype can be web, jpeg, png, jp2
+func ConvertImage(inputFile string, outputFile string, fileType string) error {
+	image, err := getImage(inputFile)
+	if err != nil {
+		return returnError(err)
+	}
+
+	defer image.Close()
+
+	newImage, err := exportAs(fileType, image)
+	if err != nil {
+		return returnError(err)
+	}
+
+	file, err := os.Create(outputFile + "." + fileType)
+	if err != nil {
+		return returnError(err)
+	}
+
+	defer file.Close()
+
+	_, err = file.Write(newImage)
+	if err != nil {
+		return returnError(err)
+	}
+
+	err = file.Sync()
+	if err != nil {
+		return returnError(err)
+	}
+
+	return nil
+}
